@@ -51,8 +51,10 @@ if not os.path.exists(Videos_Folder):
              
         
 with picamera.PiCamera() as camera:
-    camera.resolution = (1920, 1000)
-    camera.framerate = 30
+    camera.resolution = (1280, 720)
+    camera.framerate = 10
+    #camera.resolution = (1920, 1000)
+    #camera.framerate = 30
 
     print('Obtaining Video File Number')
 
