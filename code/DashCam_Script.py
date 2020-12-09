@@ -3,6 +3,7 @@ import os
 import psutil
 import serial
 #import pynmea2
+import pathlib
 import time
 import json
 import itertools
@@ -15,6 +16,7 @@ SPACE_LIMIT = 15
 DELETE_FILES = 10
 File_Number = 1
 
+absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
 Folder_Root = "/home/pi/DashCam/"
 Videos_Folder = "Videos/"
 
@@ -55,16 +57,16 @@ def Get_file_number(fullPath):
 def WriteFileNumberToConfigFile(file_name):
     iNum = Get_file_number(file_number)
 
-    if os.path.exists('Config_DashCam.json'):
+    if os.path.exists(absolute_path + 'Config_DashCam.json'):
         try:
-            with open('Config_DashCam.json', 'r') as f:
+            with open(absolute_path + 'Config_DashCam.json', 'r') as f:
                 ConfigFile = json.load(f)
         except(IOError, ValueError):
             ConfigFile = File_Number
 
         ConfigFile['number'] = iNum  # or whatever
 
-        with open('Config_DashCam.json', 'w') as f:
+        with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(ConfigFile, f)
         
 with picamera.PiCamera() as camera:
@@ -73,8 +75,9 @@ with picamera.PiCamera() as camera:
 
     print('Obtaining Video File Number')
 
-    if os.path.isfile(Folder_Root + 'Config_DashCam.json'):
-        f = open('Config_DashCam.json','r')
+   
+    if os.path.isfile(absolute_path + 'Config_DashCam.json'):
+        f = open(absolute_path + 'Config_DashCam.json','r')
         Config_DashCam = json.load(f)
         file_number = Config_DashCam['File_Number']['number']
         print('File Number is : ')
@@ -86,7 +89,7 @@ with picamera.PiCamera() as camera:
         File_Number = 1
         Config_DashCam = {}
         Config_DashCam['File_Number'] = { 'number' : File_Number }
-        with open('Config_DashCam.json', 'w') as f:
+        with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
             print('Config file created')
     
