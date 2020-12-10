@@ -12,7 +12,7 @@ from picamera import Color
 
 DURATION = 1
 MAX_FILES = 99999
-SPACE_LIMIT = 15
+SPACE_LIMIT = 16
 DELETE_FILES = 10
 File_Number = 1
 
@@ -24,6 +24,8 @@ if not os.path.exists(Videos_Folder):
     os.makedirs(Videos_Folder)
     print('Created Video Folder')
 
+
+
 def Clear_Space():
     
     i = 0
@@ -32,7 +34,7 @@ def Clear_Space():
         del_file_path = Folder_Root + Videos_Folder + "Video%05d.h264" % i
         i = i + 1
         if os.path.exists(del_file_path):
-            print('Max file count reached. Deleting some files, please wait ...')
+            print('Deleting some files to create space on the drive, please wait ...')
             os.remove(del_file_path)
             print('Deleted file ' + del_file_path ) 
             Files_Deleted = Files_Deleted + 1
@@ -64,11 +66,30 @@ def WriteFileNumberToConfigFile(file_name):
         except(IOError, ValueError):
             ConfigFile = File_Number
 
-        ConfigFile['number'] = iNum  # or whatever
+        ConfigFile['File_Number']['number'] = iNum  # or whatever
 
         with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(ConfigFile, f)
         
+
+def GetConfigValue(Field):
+    if os.path.isfile(absolute_path + 'Config_DashCam.json'):
+        f = open(absolute_path + 'Config_DashCam.json','r')
+        Config_DashCam = json.load(f)
+        file_number = Config_DashCam['File_Number']['number']
+        print('File Number is : ')
+        print(file_number)
+        file_name = Folder_Root + Videos_Folder + "Video" + str(file_number).zfill(5) + "." + "h264"
+        print(file_name)
+    else:
+        print("Config file not found, creating one.")
+        File_Number = 1
+        Config_DashCam = {}
+        Config_DashCam['File_Number'] = { 'number' : File_Number }
+        with open(absolute_path + 'Config_DashCam.json', 'w') as f:
+            json.dump(Config_DashCam,f)
+            print('Config file created')
+
 with picamera.PiCamera() as camera:
     camera.resolution = (1920, 1000)
     camera.framerate = 30
@@ -86,9 +107,11 @@ with picamera.PiCamera() as camera:
         print(file_name)
     else:
         print("Config file not found, creating one.")
-        File_Number = 1
+        file_number = 1
         Config_DashCam = {}
-        Config_DashCam['File_Number'] = { 'number' : File_Number }
+        #Config_DashCam['File_Number'] = { 'number' : file_number }
+        Config_DashCam['File_Number'] = { 'number' : file_number }
+        Config_DashCam['Duration'] = { 'DurationInMinutes' : 5 }
         with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
             print('Config file created')
@@ -111,6 +134,8 @@ with picamera.PiCamera() as camera:
        WriteFileNumberToConfigFile(file_name)
 
        if(psutil.disk_usage(".").percent > SPACE_LIMIT):
-           print('Warning : Low space!')
+
+           print('Warning : Low space!' )
+           print(psutil.disk_usage(".").percent)
            Clear_Space()
 
