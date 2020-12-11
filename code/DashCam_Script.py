@@ -39,14 +39,14 @@ def Check_Space():
     if(psutil.disk_usage(".").percent > cnf_Space_Limit):
         Clear_Space()
 
-def Get_file_number(fullPath):
+def Get_file_number(file_name):
     fullNameLen = len(file_name)
     st = fullNameLen - 10
     en = fullNameLen - 5
     return int(file_name[st:en])
 
 def WriteFileNumberToConfigFile(file_name):
-    iNum = Get_file_number(cnf_file_number)
+    iNum = Get_file_number(file_name)
 
     if os.path.exists(absolute_path + 'Config_DashCam.json'):
         try:
@@ -59,67 +59,76 @@ def WriteFileNumberToConfigFile(file_name):
 
         with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(ConfigFile, f)
-        
 
-# def GetConfigValue(Field):
-#     if os.path.isfile(absolute_path + 'Config_DashCam.json'):
-#         f = open(absolute_path + 'Config_DashCam.json','r')
-#         Config_DashCam = json.load(f)
-#         cnf_file_number = Config_DashCam[Field]
-#         print('File Number is : ')
-#         print(cnf_file_number)
-#         file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
-#         print(file_name)
- 
-with picamera.PiCamera() as camera:
-    camera.resolution = (1920, 1000)
-    camera.framerate = 30
+#Function that actually start recording based on either default or config file parameter values        
+def StartRecording():
+
+
+    with picamera.PiCamera() as camera:
+        camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
+        camera.framerate = cnf_Framerate
+
+        for file_name in camera.record_sequence(Folder_Root + Videos_Folder + "Video%05d.h264" % i for i in range(cnf_file_number, cnf_Max_Files)):
+            print('Recording to %s' % file_name)
+            camera.wait_recording(cnf_Duration*60)
+            
+            WriteFileNumberToConfigFile(file_name)
+            Check_Space()
 
     print('Obtaining Video File Number')
 
-   
-    if os.path.isfile(absolute_path + 'Config_DashCam.json'):
-        f = open(absolute_path + 'Config_DashCam.json','r')
-        Config_DashCam = json.load(f)
-        cnf_file_number = Config_DashCam['File_Number']
+    #Note :- If Json confic file exist then read from it and assign to variables.   
+if os.path.isfile(absolute_path + 'Config_DashCam.json'):
+    f = open(absolute_path + 'Config_DashCam.json','r')
+    Config_DashCam = json.load(f)
+    cnf_file_number = Config_DashCam['File_Number']
 
-        #Note :- Config file number is the last successful file. Next file should start with new number to avoid overriding last file.
-        cnf_file_number = cnf_file_number +1 
+    #Note :- Config file number is the last successful file. Next file should start with new number to avoid overriding last file.
+    cnf_file_number = cnf_file_number +1 
 
-        cnf_Duration = Config_DashCam['Duration']
-        cnf_Max_Files = Config_DashCam['Max_Files']
-        cnf_Space_Limit = Config_DashCam['Space_Limit']
-        cnf_Delete_Files = Config_DashCam['Delete_Files']
+    cnf_Duration = Config_DashCam['Duration_In_Minutes']
+    cnf_Max_Files = Config_DashCam['Max_Files']
+    cnf_Space_Limit = Config_DashCam['Space_Limit_In_Percentage']
+    cnf_Delete_Files = Config_DashCam['Delete_Files']
+    cnf_ResolutionX = Config_DashCam['ResolutionX']
+    cnf_ResolutionY = Config_DashCam['ResolutionY']
+    cnf_Framerate = Config_DashCam['Framerate']
 
-        print('File Number is : ')
-        print(cnf_file_number)
-        file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
-        print(file_name)
-    else:
-        print("Config file not found, creating one with default values, please wait...")
-        cnf_file_number = 1
-        cnf_Duration = 1
-        cnf_Max_Files = 99999
-        cnf_Space_Limit = 20
-        cnf_Delete_Files = 10
+    file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
+    print(file_name)
 
+    StartRecording()
+#Note :- If Json canfic file does not exist then create one with default variables values and start recording with it.
+else:
+    print("Config file not found, creating one with default values, please wait...")
 
-        Config_DashCam = {}
-        Config_DashCam['File_Number'] =  cnf_file_number
-        Config_DashCam['Duration'] =  cnf_Duration
-        Config_DashCam['Max_Files'] =  cnf_Max_Files
-        Config_DashCam['Space_Limit'] =  cnf_Space_Limit
-        Config_DashCam['Delete_Files'] =  cnf_Delete_Files
+    cnf_file_number = 1
+    cnf_Duration = 1
+    cnf_Max_Files = 99999
+    cnf_Space_Limit = 80
+    cnf_Delete_Files = 10
+    cnf_ResolutionX = 1920
+    cnf_ResolutionY = 1000
+    cnf_Framerate = 30
 
-        with open(absolute_path + 'Config_DashCam.json', 'w') as f:
+    Config_DashCam = {}
+    Config_DashCam['File_Number'] =  cnf_file_number
+    Config_DashCam['Duration_In_Minutes'] =  cnf_Duration
+    Config_DashCam['Max_Files'] =  cnf_Max_Files
+    Config_DashCam['Space_Limit_In_Percentage'] =  cnf_Space_Limit
+    Config_DashCam['Delete_Files'] =  cnf_Delete_Files
+    Config_DashCam['ResolutionX'] =  cnf_ResolutionX
+    Config_DashCam['ResolutionY'] =  cnf_ResolutionY
+    Config_DashCam['Framerate'] =  cnf_Framerate
+
+    with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
             print('Config file created')
-    
-    for file_name in camera.record_sequence(Folder_Root + Videos_Folder + "Video%05d.h264" % i for i in range(cnf_file_number, cnf_Max_Files)):
-       print('Recording to %s' % file_name)
-       camera.wait_recording(cnf_Duration*5)
-    
-       WriteFileNumberToConfigFile(file_name)
-       Check_Space()
+
+    file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
+    print(file_name)
+
+    StartRecording()
+
 
 
