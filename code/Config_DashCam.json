@@ -1,1 +1,1 @@
-{"File_Number": 61, "Duration": 1, "Max_Files": 99999, "Space_Limit": 20, "Delete_Files": 10}
+{"File_Number": 22, "Duration_In_Minutes": 1, "Max_Files": 99999, "Space_Limit_In_Percentage": 80, "Delete_Files": 10, "ResolutionX": 1920, "ResolutionY": 1000, "Framerate": 30}
