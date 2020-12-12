@@ -9,6 +9,7 @@ import json
 import itertools
 import RPi.GPIO as GPIO
 from picamera import Color
+import datetime as dt
 
 absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
 Folder_Root = "/home/pi/DashCam/"
@@ -67,10 +68,16 @@ def StartRecording():
     with picamera.PiCamera() as camera:
         camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
         camera.framerate = cnf_Framerate
-
+        camera.annotate_background = picamera.Color('black')
+        camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         for file_name in camera.record_sequence(Folder_Root + Videos_Folder + "Video%05d.h264" % i for i in range(cnf_file_number, cnf_Max_Files)):
             print('Recording to %s' % file_name)
             camera.wait_recording(cnf_Duration*60)
+            start = dt.datetime.now()
+            while (dt.datetime.now() - start).seconds < 30:
+                camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                camera.wait_recording(0.2)
             
             WriteFileNumberToConfigFile(file_name)
             Check_Space()
