@@ -1,8 +1,8 @@
 
 import os
 
-START_INDEX = 1972
-END_INDEX = 1973
+START_INDEX = 2106
+END_INDEX =2107
 Folder_Root = "/home/pi/DashCam/"
 
 print("Starting conversion...")
