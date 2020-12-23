@@ -11,6 +11,7 @@ import itertools
 import RPi.GPIO as GPIO
 from picamera import Color
 import datetime as dt
+import subprocess
 
 #Global Variable declaration
 
@@ -18,18 +19,19 @@ absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
 Folder_Root = "/home/pi/dashcam/"
 Videos_Folder = "videos/"
 
-SWITCH_PIN = 17
+SWITCH_PIN = 3
 POWER_PIN = 27
 
 file_number = 0
 port = "/dev/serial0"
 timeout = 0.5
 #serialPort = serial.Serial(port, baudrate = 9600, timeout = 0.5)
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(POWER_PIN, GPIO.OUT)
-GPIO.output(POWER_PIN, GPIO.LOW)
-GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+#GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BOARD)
+#GPIO.setwarnings(False)
+# GPIO.setup(POWER_PIN, GPIO.OUT)
+# GPIO.output(POWER_PIN, GPIO.LOW)
+
 # GPIO.setup(LED_PIN, GPIO.OUT)
 # GPIO.output(LED_PIN, GPIO.LOW)
 
@@ -97,11 +99,11 @@ def WriteFileNumberToConfigFile(file_name):
 # 5 Stop Recording
 # 6 Write last successful recorded file number to Jason config file.
 # 7 Start recording with the next file number / Name
-# 8 In between, if Shutdown switch is pressed then shut down Raspi safely/softly
+# 8 In between, if Shutdown switch is pressed and hold for 5 seconds, then shut down Raspi safely/softly
 
 def StartRecording():
 
-
+    cntr = 0
     with picamera.PiCamera() as camera:
         camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
         camera.framerate = cnf_Framerate
@@ -112,7 +114,7 @@ def StartRecording():
                
             file_name = Folder_Root + Videos_Folder + "video%05d.h264" % file_number
             print('Recording to %s' % file_name)
-        
+            cntr = 0
             timeout = time.time() + cnf_Duration
             camera.start_recording(file_name, quality = cnf_Quality)
             start = dt.datetime.now()
@@ -121,19 +123,29 @@ def StartRecording():
                 camera.annotate_background = Color('black')
                 camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %a %H:%M:%S')
                 camera.wait_recording(0.1)
-                 
-            while(time.time() < timeout):
-                               	
-                Check_Space()
+                start_time  = time.time()
+                shutdown = False
                 
-                if(GPIO.input(SWITCH_PIN) == 0):
-                        print('Shutting down...')
-                        camera.stop_recording()
-                        time.sleep(3)
-                        os.system("sudo shutdown -h now")
-        
+                if GPIO.input(cnf_GPIOPINNUMBER) == False:
+                        time.sleep(1)
+                        cntr = cntr +1
+                        start_time = time.time()
+                        print(cntr)
+                        
+                        if cntr > cnf_PiShutdownDelay:
+                            shutdown = True
+                            print('Shutting down...')
+                            camera.stop_recording()
+                            WriteFileNumberToConfigFile(file_name)
+                            time.sleep(3)
+                            os.system("sudo shutdown -h now")
+                            #subprocess.call("/sbin/shutdown -h now", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                else:
+                    cntr = 0                               
+               
+            Check_Space()
             WriteFileNumberToConfigFile(file_name)
-        
+            Check_Space()
             time.sleep(0.02)
         
             file_number = file_number +1
@@ -158,10 +170,15 @@ if os.path.isfile(absolute_path + 'Config_DashCam.json'):
     cnf_ResolutionY = Config_DashCam['ResolutionY']
     cnf_Framerate = Config_DashCam['Framerate']
     cnf_Quality = Config_DashCam['Quality']
+    cnf_PiStartTimeDelay = Config_DashCam['PiStartTimeDelay']
+    cnf_PiShutdownDelay = Config_DashCam['PiShutdownDelay']
+    cnf_GPIOPINNUMBER = Config_DashCam['GPIOPINNUMBER']
+    SWITCH_PIN = cnf_GPIOPINNUMBER
+    GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
     print(file_name)
-
+    
     StartRecording()
 #Note :- If Json canfic file does not exist then create one with default variables values and start recording with it.
 else:
@@ -176,6 +193,9 @@ else:
     cnf_ResolutionY = 1000
     cnf_Framerate = 30
     cnf_Quality = 20
+    cnf_PiStartTimeDelay = 2
+    cnf_PiShutdownDelay = 5
+    cnf_GPIOPINNUMBER = 3
 
     Config_DashCam = {}
     Config_DashCam['File_Number'] =  cnf_file_number
@@ -187,6 +207,11 @@ else:
     Config_DashCam['ResolutionY'] =  cnf_ResolutionY
     Config_DashCam['Framerate'] =  cnf_Framerate
     Config_DashCam['Quality'] =  cnf_Quality
+    Config_DashCam['PiStartTimeDelay'] = cnf_PiStartTimeDelay
+    Config_DashCam['PiShutdownDelay'] = cnf_PiShutdownDelay
+    Config_DashCam['GPIOPINNUMBER'] =cnf_GPIOPINNUMBER
+    SWITCH_PIN = cnf_GPIOPINNUMBER
+    GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
