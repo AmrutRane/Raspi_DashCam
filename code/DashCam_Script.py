@@ -1,3 +1,4 @@
+# Import libraries
 import picamera
 import os
 import psutil
@@ -11,14 +12,38 @@ import RPi.GPIO as GPIO
 from picamera import Color
 import datetime as dt
 
-absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
-Folder_Root = "/home/pi/DashCam/"
-Videos_Folder = "Videos/"
+#Global Variable declaration
 
+absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
+Folder_Root = "/home/pi/dashcam/"
+Videos_Folder = "videos/"
+
+SWITCH_PIN = 17
+POWER_PIN = 27
+
+file_number = 0
+port = "/dev/serial0"
+timeout = 0.5
+#serialPort = serial.Serial(port, baudrate = 9600, timeout = 0.5)
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(POWER_PIN, GPIO.OUT)
+GPIO.output(POWER_PIN, GPIO.LOW)
+GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+# GPIO.setup(LED_PIN, GPIO.OUT)
+# GPIO.output(LED_PIN, GPIO.LOW)
+
+# Create root folder ("dashcam")
+if not os.path.exists(Folder_Root):
+    os.makedirs(Folder_Root)
+    print('dashcam folder created')
+
+# Create videos folder.
 if not os.path.exists(Videos_Folder):
     os.makedirs(Videos_Folder)
-    print('Created Video Folder')
+    print('videos folder created')
 
+# Function to delete files (per number from Json config file) if disk space is more than threshold (from condig file)
 def Clear_Space():
     
     i = 0
@@ -33,19 +58,21 @@ def Clear_Space():
             Files_Deleted = Files_Deleted + 1
         if(Files_Deleted >= cnf_Delete_Files):
             break
-    
 
+# Function to check available disk space. If disk space is above threshold mentioned in the Json config file then call clear_space
 def Check_Space():
     #print('Checking Space...')
     if(psutil.disk_usage(".").percent > cnf_Space_Limit):
         Clear_Space()
 
+# Function to extract file number for file name.
 def Get_file_number(file_name):
     fullNameLen = len(file_name)
     st = fullNameLen - 10
     en = fullNameLen - 5
     return int(file_name[st:en])
 
+# Function to write last successful video file number in Json config file.
 def WriteFileNumberToConfigFile(file_name):
     iNum = Get_file_number(file_name)
 
@@ -60,29 +87,58 @@ def WriteFileNumberToConfigFile(file_name):
 
         with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(ConfigFile, f)
+        
+#Function that actually start recording based on either default or config file parameter values
+# Execution Steps are 
+# 1 Set values from Json config
+# 2 Start recoding with a loop for max number of files.
+# 3 Format file name and start recording
+# 4 Print annotate having date time 
+# 5 Stop Recording
+# 6 Write last successful recorded file number to Jason config file.
+# 7 Start recording with the next file number / Name
+# 8 In between, if Shutdown switch is pressed then shut down Raspi safely/softly
 
-#Function that actually start recording based on either default or config file parameter values        
 def StartRecording():
 
 
     with picamera.PiCamera() as camera:
         camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
         camera.framerate = cnf_Framerate
-        camera.annotate_background = picamera.Color('black')
-        camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        for file_name in camera.record_sequence(Folder_Root + Videos_Folder + "Video%05d.h264" % i for i in range(cnf_file_number, cnf_Max_Files)):
-            print('Recording to %s' % file_name)
-            camera.wait_recording(cnf_Duration*60)
-            start = dt.datetime.now()
-            while (dt.datetime.now() - start).seconds < 30:
-                camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                camera.wait_recording(0.2)
-            
-            WriteFileNumberToConfigFile(file_name)
-            Check_Space()
+        file_number=cnf_file_number 
 
-    print('Obtaining Video File Number')
+        while file_number < cnf_Max_Files:
+               
+            file_name = Folder_Root + Videos_Folder + "video%05d.h264" % file_number
+            print('Recording to %s' % file_name)
+        
+            timeout = time.time() + cnf_Duration
+            camera.start_recording(file_name, quality = cnf_Quality)
+            start = dt.datetime.now()
+        
+            while (dt.datetime.now() - start).seconds < cnf_Duration:
+                camera.annotate_background = Color('black')
+                camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %a %H:%M:%S')
+                camera.wait_recording(0.1)
+                 
+            while(time.time() < timeout):
+                               	
+                Check_Space()
+                
+                if(GPIO.input(SWITCH_PIN) == 0):
+                        print('Shutting down...')
+                        camera.stop_recording()
+                        time.sleep(3)
+                        os.system("sudo shutdown -h now")
+        
+            WriteFileNumberToConfigFile(file_name)
+        
+            time.sleep(0.02)
+        
+            file_number = file_number +1
+        
+            camera.stop_recording()
 
     #Note :- If Json confic file exist then read from it and assign to variables.   
 if os.path.isfile(absolute_path + 'Config_DashCam.json'):
@@ -94,12 +150,14 @@ if os.path.isfile(absolute_path + 'Config_DashCam.json'):
     cnf_file_number = cnf_file_number +1 
 
     cnf_Duration = Config_DashCam['Duration_In_Minutes']
+    cnf_Duration = cnf_Duration * 60 # Config value * 60 seconds
     cnf_Max_Files = Config_DashCam['Max_Files']
     cnf_Space_Limit = Config_DashCam['Space_Limit_In_Percentage']
     cnf_Delete_Files = Config_DashCam['Delete_Files']
     cnf_ResolutionX = Config_DashCam['ResolutionX']
     cnf_ResolutionY = Config_DashCam['ResolutionY']
     cnf_Framerate = Config_DashCam['Framerate']
+    cnf_Quality = Config_DashCam['Quality']
 
     file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
     print(file_name)
@@ -117,6 +175,7 @@ else:
     cnf_ResolutionX = 1920
     cnf_ResolutionY = 1000
     cnf_Framerate = 30
+    cnf_Quality = 20
 
     Config_DashCam = {}
     Config_DashCam['File_Number'] =  cnf_file_number
@@ -127,6 +186,7 @@ else:
     Config_DashCam['ResolutionX'] =  cnf_ResolutionX
     Config_DashCam['ResolutionY'] =  cnf_ResolutionY
     Config_DashCam['Framerate'] =  cnf_Framerate
+    Config_DashCam['Quality'] =  cnf_Quality
 
     with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
