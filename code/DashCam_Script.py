@@ -108,7 +108,7 @@ def StartRecording():
         camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
         camera.framerate = cnf_Framerate
         
-        file_number=cnf_file_number 
+        file_number=cnf_file_number  
  
         while file_number < cnf_Max_Files:
                
