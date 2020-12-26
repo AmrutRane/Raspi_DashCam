@@ -109,7 +109,7 @@ def StartRecording():
         camera.framerate = cnf_Framerate
         
         file_number=cnf_file_number 
-
+ 
         while file_number < cnf_Max_Files:
                
             file_name = Folder_Root + Videos_Folder + "video%05d.h264" % file_number
