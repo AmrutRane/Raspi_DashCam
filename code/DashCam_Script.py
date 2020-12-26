@@ -181,7 +181,7 @@ if os.path.isfile(absolute_path + 'Config_DashCam.json'):
     cnf_file_number = cnf_file_number +1 
 
     cnf_Duration = Config_DashCam['Duration_In_Minutes']
-    cnf_Duration = cnf_Duration * 5 # Config value * 60 seconds
+    cnf_Duration = cnf_Duration * 60 # Config value * 60 seconds
     cnf_Max_Files = Config_DashCam['Max_Files']
     cnf_Space_Limit = Config_DashCam['Space_Limit_In_Percentage']
     cnf_Delete_Files = Config_DashCam['Delete_Files']
