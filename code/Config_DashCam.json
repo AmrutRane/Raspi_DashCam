@@ -1,1 +1,1 @@
-{"File_Number": 1, "Duration_In_Minutes": 1, "Max_Files": 99999, "Space_Limit_In_Percentage": 80, "Delete_Files": 10, "ResolutionX": 1280, "ResolutionY": 1024, "Framerate": 25, "Quality": 20, "PiStartTimeDelay": 2, "PiShutdownDelay": 5, "GPIOPINNUMBER": 5}
+{"File_Number": 0, "Duration_In_Minutes": 1, "Max_Files": 99999, "Space_Limit_In_Percentage": 80, "Delete_Files": 10, "ResolutionX": 1280, "ResolutionY": 1024, "Framerate": 25, "Quality": 20, "PiStartTimeDelay": 2, "PiShutdownDelay": 5, "GPIOPINNUMBER": 5}

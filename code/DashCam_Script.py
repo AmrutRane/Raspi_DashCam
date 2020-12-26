@@ -18,6 +18,7 @@ import subprocess
 absolute_path = str(pathlib.Path(__file__).parent.absolute()) + "/"
 Folder_Root = "/home/pi/dashcam/"
 Videos_Folder = "videos/"
+Log_File = Folder_Root + "dashcamlogs.txt"
 
 SWITCH_PIN = 3
 POWER_PIN = 27
@@ -38,33 +39,48 @@ GPIO.setmode(GPIO.BOARD)
 # Create root folder ("dashcam")
 if not os.path.exists(Folder_Root):
     os.makedirs(Folder_Root)
-    print('dashcam folder created')
+    print("dashcam folder created")
+    Write_Debug_Logs('Config file created')
 
 # Create videos folder.
 if not os.path.exists(Videos_Folder):
     os.makedirs(Videos_Folder)
     print('videos folder created')
+    Write_Debug_Logs('videos folder created')
+
+def Write_Debug_Logs(logtext):
+    fl = (Log_File)
+    if not os.path.exists(fl):
+        fl = open(Log_File,"x")
+        fl.close
+
+    fl = open(Log_File,"a")
+    fl.write(logtext + "\n")
+    fl.close
 
 # Function to delete files (per number from Json config file) if disk space is more than threshold (from condig file)
 def Clear_Space():
-    
+    Write_Debug_Logs('Creating disk space by deleting old recorded files.')    
     i = 0
     Files_Deleted = 0
     while i < cnf_Max_Files:
-        del_file_path = Folder_Root + Videos_Folder + "Video%05d.h264" % i
+        del_file_path = Folder_Root + Videos_Folder + "video%05d.h264" % i
         i = i + 1
         if os.path.exists(del_file_path):
             #print('Deleting some files to create space on the drive, please wait ...')
             os.remove(del_file_path)
             print( 'Deleted file ' + del_file_path ) 
+            Write_Debug_Logs('Deleted file ' + del_file_path )
             Files_Deleted = Files_Deleted + 1
         if(Files_Deleted >= cnf_Delete_Files):
             break
 
 # Function to check available disk space. If disk space is above threshold mentioned in the Json config file then call clear_space
 def Check_Space():
-    #print('Checking Space...')
+    print('Checking disk Space...')
+    Write_Debug_Logs('Checking disk Space...')
     if(psutil.disk_usage(".").percent > cnf_Space_Limit):
+        
         Clear_Space()
 
 # Function to extract file number for file name.
@@ -89,7 +105,7 @@ def WriteFileNumberToConfigFile(file_name):
 
         with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(ConfigFile, f)
-        
+            Write_Debug_Logs('File Number ' + str(iNum) + ' saved in Json config file')    
 #Function that actually start recording based on either default or config file parameter values
 # Execution Steps are 
 # 1 Set values from Json config
@@ -108,12 +124,13 @@ def StartRecording():
         camera.resolution = (cnf_ResolutionX,cnf_ResolutionY)
         camera.framerate = cnf_Framerate
         
-        file_number=cnf_file_number  
- 
+        file_number=cnf_file_number 
+
         while file_number < cnf_Max_Files:
                
             file_name = Folder_Root + Videos_Folder + "video%05d.h264" % file_number
             print('Recording to %s' % file_name)
+            Write_Debug_Logs('Recording to next file %s' % str(file_name))
             cntr = 0
             timeout = time.time() + cnf_Duration
             camera.start_recording(file_name, quality = cnf_Quality)
@@ -134,23 +151,25 @@ def StartRecording():
                         
                         if cntr > cnf_PiShutdownDelay:
                             shutdown = True
-                            print('Shutting down...')
+                            print('Shutting down RASPI, please wait...')
+                            Write_Debug_Logs('Shutting down RASPI, please wait...')
                             camera.stop_recording()
                             WriteFileNumberToConfigFile(file_name)
                             time.sleep(3)
+                            Write_Debug_Logs('Bye Bye')
                             os.system("sudo shutdown -h now")
                             #subprocess.call("/sbin/shutdown -h now", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 else:
                     cntr = 0                               
-               
-            Check_Space()
+            Write_Debug_Logs("Recording saved to file " + str(file_number))       
             WriteFileNumberToConfigFile(file_name)
             Check_Space()
             time.sleep(0.02)
-        
+
             file_number = file_number +1
         
             camera.stop_recording()
+            Write_Debug_Logs("Recording stopped for file " + str(file_number)) 
 
     #Note :- If Json confic file exist then read from it and assign to variables.   
 if os.path.isfile(absolute_path + 'Config_DashCam.json'):
@@ -162,7 +181,7 @@ if os.path.isfile(absolute_path + 'Config_DashCam.json'):
     cnf_file_number = cnf_file_number +1 
 
     cnf_Duration = Config_DashCam['Duration_In_Minutes']
-    cnf_Duration = cnf_Duration * 60 # Config value * 60 seconds
+    cnf_Duration = cnf_Duration * 5 # Config value * 60 seconds
     cnf_Max_Files = Config_DashCam['Max_Files']
     cnf_Space_Limit = Config_DashCam['Space_Limit_In_Percentage']
     cnf_Delete_Files = Config_DashCam['Delete_Files']
@@ -178,12 +197,12 @@ if os.path.isfile(absolute_path + 'Config_DashCam.json'):
 
     file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
     print(file_name)
-    
+    Write_Debug_Logs("Variables initiated from Json config file.")
     StartRecording()
 #Note :- If Json canfic file does not exist then create one with default variables values and start recording with it.
 else:
-    print("Config file not found, creating one with default values, please wait...")
-
+    print("Json Config file not found, creating one with default values, please wait...")
+    Write_Debug_Logs("Json Config file not found, creating one with default values, please wait...")
     cnf_file_number = 1
     cnf_Duration = 1
     cnf_Max_Files = 99999
@@ -215,12 +234,9 @@ else:
 
     with open(absolute_path + 'Config_DashCam.json', 'w') as f:
             json.dump(Config_DashCam,f)
-            print('Config file created')
-
+            print('Json Config file created')
+            Write_Debug_Logs('Json Config file created')
     file_name = Folder_Root + Videos_Folder + "Video" + str(cnf_file_number).zfill(5) + "." + "h264"
     print(file_name)
-
+    Write_Debug_Logs("Variables initiated with default values. Proceeding with the recording...")
     StartRecording()
-
-
-
